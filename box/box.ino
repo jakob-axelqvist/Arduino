@@ -16,15 +16,12 @@ void setup() {
   // Setup display
   setupDisplay();
 
-  // Setup all servos
-  setupServo(base, "base", 9);
-  setupServo(shoulder, "shoulder", 6);
-  setupServo(elbow, "elbow", 5);
-  setupServo(wrist, "wrist", 3);
-  setupServo(grip, "grip", 11);
+  // Setup servos
+  setupServos();
 }
 
 void loop() {
+  banner("START");
   setInitialPosition();
 
   openGrip();
@@ -35,6 +32,12 @@ void loop() {
   lowerElbow();
   openGrip();
   raiseElbow();
+  banner("END");
+}
+
+void banner(String banner) {
+  updateDisplay(banner);
+  delay(2000);
 }
 
 void moveBase(int angle) {
@@ -45,6 +48,8 @@ void setInitialPosition() {
   move(elbow, "init elbow", 40);
   move(base, "init base", 90);
   move(wrist, "init wrist", 90);
+  move(grip, "init grip", 0);
+  move(grip, "init grip", 70);
   move(grip, "init grip", 0);
   delay(5000);
 }
@@ -75,9 +80,14 @@ void setupDisplay() {
   display.clearDisplay();
   display.setTextSize(2);
   display.setCursor(0, 0);
-  display.println(F("START"));
-  display.display();
-  delay(2000);
+}
+
+void setupServos() {
+  setupServo(base, "base", 9);
+  setupServo(shoulder, "shoulder", 6);
+  setupServo(elbow, "elbow", 5);
+  setupServo(wrist, "wrist", 3);
+  setupServo(grip, "grip", 11);
 }
 
 void setupServo(Servo& servo, String name, int pin) {
