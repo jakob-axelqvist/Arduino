@@ -19,14 +19,17 @@ void setup() {
   servoWrist.attach(3);
   servoGripper.attach(11);
 
-  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+  display("JAKOB");
+  delay(3000);
+}
+
+void display(const char* text) {
   display.setTextColor(WHITE);
   display.clearDisplay();
   display.setTextSize(2);
   display.setCursor(0, 0);
-  display.println(F("HELLO"));
+  display.println(text);
   display.display();
-  delay(3000);
 }
 
 void loop() {
