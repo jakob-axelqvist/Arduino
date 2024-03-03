@@ -6,69 +6,99 @@
 #define OLED_RESET 4
 Adafruit_SSD1306 display(128, 64, &Wire, OLED_RESET);
 
-Servo servoBase;
-Servo servoShoulder;
-Servo servoElbow;
-Servo servoWrist;
-Servo servoGripper;
+Servo base;
+Servo shoulder;
+Servo elbow;
+Servo wrist;
+Servo grip;
 
 void setup() {
-  servoBase.attach(9);
-  servoShoulder.attach(6);
-  servoElbow.attach(5);
-  servoWrist.attach(3);
-  servoGripper.attach(11);
+  // Setup display
+  setupDisplay();
 
-  display("JAKOB");
-  delay(3000);
+  // Setup all servos
+  setupServo(base, "base", 9);
+  setupServo(shoulder, "shoulder", 6);
+  setupServo(elbow, "elbow", 5);
+  setupServo(wrist, "wrist", 3);
+  setupServo(grip, "grip", 11);
 }
 
-void display(const char* text) {
+void loop() {
+  setInitialPosition();
+
+  openGrip();
+  lowerElbow();
+  closeGrip();
+  raiseElbow();
+  moveBase(0);
+  lowerElbow();
+  openGrip();
+  raiseElbow();
+}
+
+void moveBase(int angle) {
+  move(base, "move base", angle);
+}
+
+void setInitialPosition() {
+  move(elbow, "init elbow", 40);
+  move(base, "init base", 90);
+  move(wrist, "init wrist", 90);
+  move(grip, "init grip", 0);
+  delay(5000);
+}
+
+void openGrip() {
+  move(grip, "open grip", 0);
+}
+
+void lowerElbow() {
+  move(elbow, "lower elbow", 75);
+}
+
+void closeGrip() {
+  move(grip, "close grip", 70);
+}
+
+void raiseElbow() {
+  move(elbow, "raise elbow", 50);
+}
+
+void rotateWrist() {
+  move(wrist, "rotate wrist", 360);
+}
+
+void setupDisplay() {
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
   display.setTextColor(WHITE);
   display.clearDisplay();
   display.setTextSize(2);
   display.setCursor(0, 0);
-  display.println(text);
+  display.println(F("START"));
   display.display();
+  delay(2000);
 }
 
-void loop() {
-  // Function test for each servo
-  functionTest();
-  delay(1000); // Delay between tests
+void setupServo(Servo& servo, String name, int pin) {
+  updateDisplay("setup " + name);
+  servo.attach(pin);
+  delay(100);
+  servo.detach();
+  delay(100);
+  servo.attach(pin);
+  delay(100);
 }
 
-void functionTest() {
-  // Test each servo by moving it to its minimum, middle, and maximum positions
-  testServo(servoBase, "Base");
-  testServo(servoShoulder, "Shoulder");
-  testServo(servoElbow, "Elbow");
-  testServo(servoWrist, "Wrist");
-  testServo(servoGripper, "Gripper");
+void move(Servo& servo, String servoName, int angle) {
+  updateDisplay(servoName + ": " + angle);
+  servo.write(angle);
+  delay(2000);
 }
 
-void testServo(Servo &servo, const char *servoName) {
-  // Move servo to minimum position
-  servo.write(0);
-  updateDisplay(servoName, 50);
-  delay(500); // Wait for half a second
-
-  // Move servo to middle position
-  servo.write(90);
-  updateDisplay(servoName, 40);
-  delay(500);
-
-  // Move servo to maximum position
-  servo.write(180);
-  updateDisplay(servoName, 60);
-  delay(500);
-}
-
-void updateDisplay(const char *name, int angle) {
+void updateDisplay(String text) {
   display.clearDisplay();
   display.setCursor(0, 0);
-  display.print(name);
-  display.print(": ");
-  display.print(angle);
+  display.print(text);
   display.display();
 }
