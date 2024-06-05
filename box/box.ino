@@ -1,114 +1,232 @@
+#define enA 5 // Enable1 L298 Pin enA
+#define in1 7 // Motor1 L298 Pin in1
+#define in2 8 // Motor1 L298 Pin in2
+#define in3 9 // Motor2 L298 Pin in3
+#define in4 10 // Motor2 L298 Pin in4
+#define enB 6 // Enable2 L298 Pin enB
+#define L_S A0 // IR sensor Left
+//#define R_S A1 // IR sensor Right
+#define echo A2 // Echo pin
+#define trigger A3 // Trigger pin
+#define servoPin A5 // Servo pin
+ 
 #include <Servo.h>
-#include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
-
-#define OLED_RESET 4
-Adafruit_SSD1306 display(128, 64, &Wire, OLED_RESET);
-
-Servo base;
-Servo shoulder;
-Servo elbow;
-Servo wrist;
-Servo grip;
-
+ 
+Servo myServo;
+int Set = 15;
+int distance_L, distance_F, distance_R;
+ 
 void setup() {
-  // Setup display
-  setupDisplay();
+    Serial.begin(9600); // Start serial communication at 9600bps
+    // pinMode(R_S, INPUT); // Declare IR sensor as input
+    pinMode(L_S, INPUT); // Declare IR sensor as input
+    pinMode(echo, INPUT); // Declare ultrasonic sensor Echo pin as input
+    pinMode(trigger, OUTPUT); // Declare ultrasonic sensor Trigger pin as output
+    pinMode(enA, OUTPUT); // Declare as output for L298 Pin enA
+    pinMode(in1, OUTPUT); // Declare as output for L298 Pin in1
+    pinMode(in2, OUTPUT); // Declare as output for L298 Pin in2
+    pinMode(in3, OUTPUT); // Declare as output for L298 Pin in3
+    pinMode(in4, OUTPUT); // Declare as output for L298 Pin in4
+    pinMode(enB, OUTPUT); // Declare as output for L298 Pin enB
+ 
+    analogWrite(enA, 200); // Set Motor1 Speed
+    analogWrite(enB, 200); // Set Motor2 Speed
+ 
+    myServo.attach(servoPin);
+    scanServo();
+    distance_F = Ultrasonic_read();
+    delay(500);
 
-  // Setup servos
-  setupServos();
+    stop();
 }
-
+ 
+// Define constants for sensor states
+const int WHITE = LOW;
+const int BLACK = HIGH;
+const int DISTANCE_THRESHOLD = 20; // Adjust this value as needed
+ 
 void loop() {
-  banner("START");
-  setInitialPosition();
+  // om vi är på vägen
+  if (is_on_road()) {
+    Serial.println("on road");
+    // kör framåt
+    forward();
 
-  openGrip();
-  lowerElbow();
-  closeGrip();
-  raiseElbow();
-  moveBase(0);
-  lowerElbow();
-  openGrip();
-  raiseElbow();
-  banner("END");
+    // om det är ett hinder på vägen
+    if (is_obstacle_on_road()) {
+      Serial.println("obstacle on road");
+      // tag höger
+      stop();
+      backward(1000);
+      turn_right(1000);
+    }
+  } else {
+    stop();
+  }
+} 
+
+bool is_on_road() {
+  int read = digitalRead(L_S);
+  return (read == WHITE);
 }
 
-void banner(String banner) {
-  updateDisplay(banner);
-  delay(2000);
+bool is_obstacle_on_road() {
+  int distance = Ultrasonic_read();
+  Serial.print("distance: "); Serial.println(distance);
+  return ((distance > 0) && (distance < DISTANCE_THRESHOLD));
 }
 
-void moveBase(int angle) {
-  move(base, "move base", angle);
+void backward(int ms) {
+  Serial.println("backward");
+  digitalWrite(in2, HIGH); // back höger
+  digitalWrite(in4, HIGH); // back vänster  
+  delay(ms);
 }
 
-void setInitialPosition() {
-  move(elbow, "init elbow", 40);
-  move(base, "init base", 90);
-  move(wrist, "init wrist", 90);
-  move(grip, "init grip", 0);
-  move(grip, "init grip", 70);
-  move(grip, "init grip", 0);
-  delay(5000);
+void forward() {
+  Serial.println("forward");
+  digitalWrite(in1, HIGH); // framåt höger
+  digitalWrite(in3, HIGH); // framåt vänster
 }
 
-void openGrip() {
-  move(grip, "open grip", 0);
+void turn_right(int ms) {
+  Serial.println("turn_right");
+  stop();
+  digitalWrite(in3, HIGH); //  framåt vänster
+  digitalWrite(in2, HIGH); //  bakåt höger
+  delay(ms);
+  stop();
 }
 
-void lowerElbow() {
-  move(elbow, "lower elbow", 75);
+void stop() {
+  Serial.println("stop");
+  digitalWrite(in1, LOW); // stopp framåt höger
+  digitalWrite(in2, LOW); // stopp bakåt höger
+  digitalWrite(in3, LOW); // stopp framåt vänster
+  digitalWrite(in4, LOW); // stopp bakåt vänster
 }
 
-void closeGrip() {
-  move(grip, "close grip", 70);
+void forward(int ms) {
+  forward();
+  delay(ms);
+  stop();
 }
 
-void raiseElbow() {
-  move(elbow, "raise elbow", 50);
+void loop_old() {
+    // Line Follower and Obstacle Avoiding
+    int distance_F = Ultrasonic_read();
+    Serial.print("D F=");
+    Serial.println(distance_F);
+ 
+    // Read the single line sensor
+    int sensorState = digitalRead(L_S);
+ 
+    // If the sensor is on white color, move forward or avoid obstacle
+    if (sensorState == WHITE) {
+        Serial.println("Sensor on white, moving forward or checking side");
+        if (distance_F > DISTANCE_THRESHOLD) {
+            forward();
+        } else {
+            stopMovement();
+            checkSides();
+        }
+    }
+    // If the sensor is on black, turn right
+    else if (sensorState == BLACK) {
+        Serial.println("Sensor on black, turning right");
+        turnRight();
+    }
+ 
+    delay(10)
+    ;
+}
+ 
+void scanServo() {
+    for (int angle = 70; angle <= 140; angle += 5) {
+        servoPulse(angle);
+    }
+    for (int angle = 140; angle >= 0; angle -= 5) {
+        servoPulse(angle);
+    }
+    for (int angle = 0; angle <= 70; angle += 5) {
+        servoPulse(angle);
+    }
+}
+ 
+void servoPulse(int angle) {
+    int pwm = (angle * 11) + 500; // Convert angle to microseconds
+    myServo.writeMicroseconds(pwm);
+    delay(50); // Refresh cycle of servo
+}
+ 
+long Ultrasonic_read() {
+    digitalWrite(trigger, LOW);
+    delayMicroseconds(2);
+    digitalWrite(trigger, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(trigger, LOW);
+    long duration = pulseIn(echo, HIGH);
+    return duration / 29 / 2; // Convert to distance in cm
+}
+ 
+void checkSides() {
+    scanServo();
+    distance_L = Ultrasonic_read();
+    myServo.write(90); // Center position
+    delay(500);
+    distance_R = Ultrasonic_read();
+ 
+    Serial.print("D L=");
+    Serial.println(distance_L);
+    Serial.print("D R=");
+    Serial.println(distance_R);
+ 
+    if (distance_L > distance_R && distance_L > Set) {
+        turnLeft();
+    } else if (distance_R > distance_L && distance_R > Set) {
+        turnRight();
+    } else {
+        moveBackward();
+        delay(500);
+        stopMovement();
+    }
 }
 
-void rotateWrist() {
-  move(wrist, "rotate wrist", 360);
+void forward_old() {
+    digitalWrite(in1, HIGH); // Left motor forward
+    digitalWrite(in2, LOW); // Left motor backward
+    digitalWrite(in3, HIGH); // Right motor forward
+    digitalWrite(in4, LOW); // Right motor backward
 }
-
-void setupDisplay() {
-  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
-  display.setTextColor(WHITE);
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setCursor(0, 0);
+ 
+void moveBackward() {
+    digitalWrite(in1, LOW); // Left motor backward
+    digitalWrite(in2, HIGH); // Left motor forward
+    digitalWrite(in3, LOW); // Right motor backward
+    digitalWrite(in4, HIGH); // Right motor forward
 }
-
-void setupServos() {
-  setupServo(base, "base", 9);
-  setupServo(shoulder, "shoulder", 6);
-  setupServo(elbow, "elbow", 5);
-  setupServo(wrist, "wrist", 3);
-  setupServo(grip, "grip", 11);
+ 
+void turnRight() {
+    digitalWrite(in1, LOW); // Left motor forward
+    digitalWrite(in2, HIGH); // Left motor backward
+    digitalWrite(in3, LOW); // Right motor backward
+    digitalWrite(in4, HIGH); // Right motor forward
+    delay(500);
+    stopMovement();
 }
-
-void setupServo(Servo& servo, String name, int pin) {
-  updateDisplay("setup " + name);
-  servo.attach(pin);
-  delay(100);
-  servo.detach();
-  delay(100);
-  servo.attach(pin);
-  delay(100);
+ 
+void turnLeft() {
+    digitalWrite(in1, HIGH); // Left motor backward
+    digitalWrite(in2, LOW); // Left motor forward
+    digitalWrite(in3, HIGH); // Right motor forward
+    digitalWrite(in4, LOW); // Right motor backward
+    delay(500);
+    stopMovement();
 }
-
-void move(Servo& servo, String servoName, int angle) {
-  updateDisplay(servoName + ": " + angle);
-  servo.write(angle);
-  delay(2000);
-}
-
-void updateDisplay(String text) {
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.print(text);
-  display.display();
+ 
+void stopMovement() {
+    digitalWrite(in1, LOW); // Left motor stop
+    digitalWrite(in2, LOW); // Left motor stop
+    digitalWrite(in3, LOW); // Right motor stop
+    digitalWrite(in4, LOW); // Right motor stop
 }
